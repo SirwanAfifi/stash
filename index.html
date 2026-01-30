@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stash - The Clipboard You Deserve</title>
+    <meta name="description"
+        content="A powerful, secure, and lightweight clipboard manager built for developers and power users.">
+    <link rel="icon" type="image/png" href="assets/logo.png">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist+Mono:wght@400;500&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap"
+        rel="stylesheet">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        serif: ['Instrument Serif', 'Georgia', 'serif'],
+                        sans: ['DM Sans', 'sans-serif'],
+                        mono: ['Geist Mono', 'monospace'],
+                    },
+                    colors: {
+                        bg: {
+                            deep: '#0c0a10',
+                            base: '#13111a',
+                            elevated: '#1a1723',
+                            hover: '#221f2e',
+                        },
+                        accent: {
+                            primary: '#785adc',
+                            light: '#9b7ff0',
+                            glow: 'rgba(120, 90, 220, 0.5)',
+                        },
+                        coral: '#ff8264',
+                        text: {
+                            primary: '#f4f2f7',
+                            secondary: '#a8a3b3',
+                            muted: '#6b6578',
+                        },
+                        border: {
+                            subtle: 'rgba(255, 255, 255, 0.06)',
+                            default: 'rgba(255, 255, 255, 0.1)',
+                        }
+                    },
+                    animation: {
+                        'fade-up': 'fadeUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+                        'fade-in': 'fadeIn 1s ease-out forwards',
+                        'float': 'float 8s ease-in-out infinite',
+                        'pulse-glow': 'pulseGlow 3s ease-in-out infinite',
+                        'gradient-x': 'gradientX 15s ease infinite',
+                        'shimmer': 'shimmer 2.5s linear infinite',
+                    },
+                    keyframes: {
+                        fadeUp: {
+                            '0%': { opacity: '0', transform: 'translateY(30px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        },
+                        fadeIn: {
+                            '0%': { opacity: '0' },
+                            '100%': { opacity: '1' },
+                        },
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0) rotate(0deg)' },
+                            '50%': { transform: 'translateY(-15px) rotate(1deg)' },
+                        },
+                        pulseGlow: {
+                            '0%, 100%': { opacity: '0.4' },
+                            '50%': { opacity: '0.8' },
+                        },
+                        gradientX: {
+                            '0%, 100%': { backgroundPosition: '0% 50%' },
+                            '50%': { backgroundPosition: '100% 50%' },
+                        },
+                        shimmer: {
+                            '0%': { backgroundPosition: '-200% 0' },
+                            '100%': { backgroundPosition: '200% 0' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #0c0a10;
+            color: #f4f2f7;
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #0c0a10;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #2a2735;
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #3a3647;
+        }
+
+        /* Noise texture overlay */
+        .noise::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+            opacity: 0.03;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        /* Gradient mesh background */
+        .gradient-mesh {
+            background:
+                radial-gradient(ellipse 80% 50% at 20% 40%, rgba(120, 90, 220, 0.15) 0%, transparent 50%),
+                radial-gradient(ellipse 60% 80% at 80% 20%, rgba(255, 130, 100, 0.08) 0%, transparent 50%),
+                radial-gradient(ellipse 50% 60% at 60% 80%, rgba(120, 90, 220, 0.1) 0%, transparent 50%);
+        }
+
+        /* Glass card */
+        .glass-card {
+            background: linear-gradient(135deg, rgba(26, 23, 35, 0.8) 0%, rgba(19, 17, 26, 0.6) 100%);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+
+        .glass-card:hover {
+            border-color: rgba(120, 90, 220, 0.3);
+            box-shadow:
+                0 0 40px rgba(120, 90, 220, 0.1),
+                inset 0 1px 0 rgba(255, 255, 255, 0.05);
+        }
+
+        /* Feature card with gradient border */
+        .feature-card {
+            position: relative;
+            background: linear-gradient(180deg, #1a1723 0%, #13111a 100%);
+            border-radius: 20px;
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 20px;
+            padding: 1px;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%);
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+        }
+
+        .feature-card:hover::before {
+            background: linear-gradient(180deg, rgba(120, 90, 220, 0.5) 0%, rgba(120, 90, 220, 0.1) 100%);
+        }
+
+        /* Shimmer effect */
+        .shimmer {
+            background: linear-gradient(90deg,
+                    transparent 0%,
+                    rgba(255, 255, 255, 0.05) 50%,
+                    transparent 100%);
+            background-size: 200% 100%;
+        }
+
+        /* App window frame */
+        .app-frame {
+            background: linear-gradient(180deg, #1e1b28 0%, #16141c 100%);
+            box-shadow:
+                -50px 0 100px -20px rgba(0, 0, 0, 0.5),
+                -20px 0 60px -30px rgba(120, 90, 220, 0.2),
+                inset 1px 0 0 rgba(255, 255, 255, 0.05);
+        }
+
+        /* Glow orb */
+        .glow-orb {
+            filter: blur(80px);
+            animation: pulseGlow 4s ease-in-out infinite;
+        }
+
+        /* Text gradient */
+        .text-gradient {
+            background: linear-gradient(135deg, #785adc 0%, #ff8264 50%, #785adc 100%);
+            background-size: 200% auto;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        /* Animated underline */
+        .animated-underline {
+            position: relative;
+        }
+
+        .animated-underline::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            width: 0;
+            height: 1px;
+            background: linear-gradient(90deg, #785adc, #ff8264);
+            transition: width 0.3s ease;
+        }
+
+        .animated-underline:hover::after {
+            width: 100%;
+        }
+
+        /* Staggered animation delays */
+        .stagger-1 {
+            animation-delay: 0.1s;
+        }
+
+        .stagger-2 {
+            animation-delay: 0.2s;
+        }
+
+        .stagger-3 {
+            animation-delay: 0.3s;
+        }
+
+        .stagger-4 {
+            animation-delay: 0.4s;
+        }
+
+        .stagger-5 {
+            animation-delay: 0.5s;
+        }
+
+        .stagger-6 {
+            animation-delay: 0.6s;
+        }
+    </style>
+</head>
+
+<body class="antialiased selection:bg-accent-primary/30 selection:text-accent-light overflow-x-hidden">
+
+    <!-- Background layers -->
+    <div class="fixed inset-0 z-0 pointer-events-none">
+        <div class="absolute inset-0 gradient-mesh"></div>
+        <div class="absolute top-1/4 left-1/4 w-[600px] h-[600px] bg-accent-primary/20 rounded-full glow-orb"></div>
+        <div class="absolute bottom-1/4 right-1/3 w-[400px] h-[400px] bg-coral/10 rounded-full glow-orb"
+            style="animation-delay: -2s;"></div>
+        <div class="absolute inset-0 noise"></div>
+    </div>
+
+    <!-- Header -->
+    <header class="fixed w-full z-50 transition-all duration-500">
+        <div class="mx-auto max-w-6xl px-6">
+            <div class="flex justify-between items-center h-20">
+                <!-- Logo -->
+                <a href="#" class="flex items-center gap-3 group">
+                    <div class="relative">
+                        <div
+                            class="absolute -inset-2 bg-accent-primary/30 rounded-xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                        </div>
+                        <div
+                            class="relative w-9 h-9 bg-gradient-to-br from-accent-primary to-accent-light rounded-xl flex items-center justify-center shadow-lg">
+                            <span class="font-mono text-sm font-bold text-white">S</span>
+                        </div>
+                    </div>
+                    <span class="font-mono text-lg font-medium tracking-tight">stash</span>
+                </a>
+
+                <!-- Nav -->
+                <nav class="hidden md:flex items-center gap-8">
+                    <a href="#features"
+                        class="text-sm text-text-secondary hover:text-text-primary animated-underline transition-colors">Features</a>
+                    <a href="#security"
+                        class="text-sm text-text-secondary hover:text-text-primary animated-underline transition-colors">Security</a>
+                </nav>
+
+                <!-- CTA -->
+                <a href="#"
+                    class="hidden md:flex items-center gap-2 px-5 py-2.5 bg-accent-primary/10 border border-accent-primary/30 rounded-full text-sm font-medium text-accent-light hover:bg-accent-primary/20 hover:border-accent-primary/50 transition-all duration-300">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                    </svg>
+                    Download Beta
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <main class="relative z-10 pt-40 pb-20">
+        <div class="max-w-6xl mx-auto px-6">
+
+            <!-- Version badge -->
+            <div class="flex justify-center mb-10 opacity-0 animate-fade-up stagger-1">
+                <div
+                    class="inline-flex items-center gap-3 px-4 py-2 rounded-full bg-bg-elevated/80 border border-border-subtle backdrop-blur-sm">
+                    <span class="relative flex h-2 w-2">
+                        <span
+                            class="animate-ping absolute inline-flex h-full w-full rounded-full bg-coral opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-2 w-2 bg-coral"></span>
+                    </span>
+                    <span class="text-xs font-mono text-text-secondary">v0.1.0 <span class="text-text-muted">|</span>
+                        macOS</span>
+                </div>
+            </div>
+
+            <!-- Headline -->
+            <div class="text-center mb-8 opacity-0 animate-fade-up stagger-2">
+                <h1 class="text-5xl md:text-7xl lg:text-8xl font-serif leading-[1.05] tracking-tight">
+                    Your clipboard,<br>
+                    <span class="italic text-gradient animate-gradient-x">finally organized</span>
+                </h1>
+            </div>
+
+            <!-- Subheadline -->
+            <p
+                class="text-center text-lg md:text-xl text-text-secondary max-w-2xl mx-auto mb-12 leading-relaxed opacity-0 animate-fade-up stagger-3">
+                Secure, lightweight, and keyboard-centric. Stash helps you manage your history, snippets, and workflow
+                without lifting your hands from the keyboard.
+            </p>
+
+            <!-- CTAs -->
+            <div
+                class="flex flex-col sm:flex-row justify-center items-center gap-4 mb-24 opacity-0 animate-fade-up stagger-4">
+                <a href="#"
+                    class="group relative px-8 py-4 bg-text-primary text-bg-deep rounded-full font-semibold text-base overflow-hidden transition-all duration-300 hover:shadow-[0_0_40px_rgba(120,90,220,0.3)]">
+                    <span class="relative z-10 flex items-center gap-2">
+                        Download for macOS
+                        <svg class="w-5 h-5 transition-transform group-hover:translate-y-0.5" fill="none"
+                            stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M19 14l-7 7m0 0l-7-7m7 7V3"></path>
+                        </svg>
+                    </span>
+                </a>
+                <a href="#features"
+                    class="px-8 py-4 text-text-secondary border border-border-default rounded-full font-medium text-base hover:border-accent-primary/50 hover:text-accent-light transition-all duration-300 backdrop-blur-sm">
+                    Explore Features
+                </a>
+            </div>
+
+            <!-- App Preview -->
+            <div
+                class="relative max-w-6xl mx-auto h-[700px] rounded-2xl border border-white/10 overflow-hidden bg-[#1e1e1e] shadow-2xl opacity-0 animate-fade-up stagger-5">
+
+                <div
+                    class="absolute top-0 w-full h-7 bg-white/10 backdrop-blur-md border-b border-white/5 z-50 flex items-center justify-between px-4 text-[11px] font-medium text-white/90">
+                    <div class="flex items-center gap-4">
+                        <svg class="w-3.5 h-3.5" viewBox="0 0 256 315">
+                            <path fill="currentColor"
+                                d="M213.8 150.5c.2 38.7 33.7 51.6 34.1 51.8-0.3 1-5.3 18.2-17.4 35.8-10.4 15.3-21.3 30.5-38.5 30.8-16.9.3-22.3-10-41.6-10-19.3 0-25.3 9.7-41.3 10.3-17 .6-29.4-16.5-39.8-31.5-21.4-30.8-37.7-86.9-15.7-125.1 11-19 30.4-31 51.5-31.3 16.1-.3 31.2 10.9 41.1 10.9 9.8 0 28.2-13.7 47.4-11.7 8 .3 30.5 3.2 45 24.3-1.2.7-26.8 15.6-26.5 47.5m-30.9-87.3c8.8-10.7 14.7-25.5 13.1-40.3-12.7.5-28.1 8.5-37.2 19.1-8.1 9.4-15.3 24.5-13.4 38.9 14.1 1.1 28.7-7 37.5-17.7" />
+                        </svg>
+                        <span class="font-bold">Stash</span>
+                        <span class="opacity-60 hidden sm:block">File</span>
+                        <span class="opacity-60 hidden sm:block">Edit</span>
+                        <span class="opacity-60 hidden sm:block">View</span>
+                        <span class="opacity-60 hidden sm:block">Window</span>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <span class="opacity-80">Fri 30 Jan</span>
+                        <span class="opacity-80">17:36</span>
+                        <svg class="w-3.5 h-3.5 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                    </div>
+                </div>
+
+                <div
+                    class="absolute inset-0 pt-7 pb-4 px-4 bg-gradient-to-br from-[#2b1b4d] via-[#1a112e] to-[#0c0a10]">
+                    <div
+                        class="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-accent-primary/20 blur-[120px] rounded-full">
+                    </div>
+                    <div
+                        class="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-coral/10 blur-[120px] rounded-full">
+                    </div>
+
+                    <div
+                        class="absolute top-7 right-0 bottom-0 w-[340px] bg-bg-deep/80 backdrop-blur-3xl border-l border-white/10 shadow-2xl flex flex-col z-40 transform transition-transform duration-500 ease-out translate-x-0">
+                        <div class="h-12 flex items-center justify-between px-4 border-b border-white/5">
+                            <div class="flex items-center gap-2">
+                                <div
+                                    class="w-5 h-5 rounded-md bg-gradient-to-br from-accent-primary to-accent-light flex items-center justify-center">
+                                    <span class="text-[10px] font-bold">S</span>
+                                </div>
+                                <span class="text-xs font-semibold">Stash History</span>
+                            </div>
+                            <button class="text-text-muted hover:text-white transition-colors">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                                </svg>
+                            </button>
+                        </div>
+
+                        <div class="flex-1 overflow-y-auto p-2 space-y-1">
+                            <!-- Item: Color (Selected) -->
+                            <div
+                                class="relative group p-2 mx-1 rounded-xl bg-accent-primary/10 border border-accent-primary/40 shadow-[0_0_0_1px_rgba(120,90,220,0.1)] cursor-pointer">
+                                <div class="flex gap-3">
+                                    <div
+                                        class="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 border border-white/10 p-1">
+                                        <div class="w-full h-full rounded-md shadow-inner"
+                                            style="background-color: #785adc;"></div>
+                                    </div>
+                                    <div class="flex-1 min-w-0 flex flex-col justify-center gap-0.5">
+                                        <div class="font-mono text-[13px] text-white truncate">#785adc</div>
+                                        <div class="flex items-center gap-1.5 text-[10px] text-text-muted">
+                                            <span>Figma</span>
+                                            <span class="opacity-40">·</span>
+                                            <span>Just now</span>
+                                            <span
+                                                class="ml-auto px-1.5 py-0.5 bg-accent-primary/20 text-accent-light rounded text-[9px]">HEX</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Item: Text -->
+                            <div
+                                class="relative group p-2 mx-1 rounded-xl hover:bg-white/5 border border-transparent hover:border-white/5 cursor-pointer transition-all">
+                                <div class="flex gap-3">
+                                    <div
+                                        class="w-9 h-9 rounded-lg bg-bg-hover flex items-center justify-center shrink-0 text-text-muted">
+                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                                            stroke-width="2">
+                                            <path stroke-linecap="round" stroke-linejoin="round"
+                                                d="M4 6h16M4 12h16M4 18h7" />
+                                        </svg>
+                                    </div>
+                                    <div class="flex-1 min-w-0 flex flex-col justify-center gap-0.5">
+                                        <div class="text-[13px] text-text-secondary truncate font-mono">git commit -m
+                                            "feat: improve performance"</div>
+                                        <div class="flex items-center gap-1.5 text-[10px] text-text-muted">
+                                            <span>Terminal</span>
+                                            <span class="opacity-40">·</span>
+                                            <span>5m ago</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Item: Image -->
+                            <div
+                                class="relative group p-2 mx-1 rounded-xl hover:bg-white/5 border border-transparent hover:border-white/5 cursor-pointer transition-all">
+                                <div class="flex gap-3">
+                                    <div
+                                        class="w-9 h-9 rounded-lg bg-violet-500/10 text-violet-400 flex items-center justify-center shrink-0">
+                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                                            stroke-width="2">
+                                            <path stroke-linecap="round" stroke-linejoin="round"
+                                                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                        </svg>
+                                    </div>
+                                    <div class="flex-1 min-w-0 flex flex-col justify-center gap-0.5">
+                                        <div
+                                            class="h-8 w-full rounded bg-bg-base/50 border border-white/5 overflow-hidden relative">
+                                            <div
+                                                class="absolute inset-0 bg-gradient-to-br from-violet-500/20 to-purple-500/20">
+                                            </div>
+                                            <div class="absolute inset-0 flex items-center justify-center">
+                                                <span class="text-[9px] text-white/40">Image Preview</span>
+                                            </div>
+                                        </div>
+                                        <div class="flex items-center gap-1.5 text-[10px] text-text-muted mt-1">
+                                            <span>Finder</span>
+                                            <span class="opacity-40">·</span>
+                                            <span>1h ago</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Item: Link -->
+                            <div
+                                class="relative group p-2 mx-1 rounded-xl hover:bg-white/5 border border-transparent hover:border-white/5 cursor-pointer transition-all">
+                                <div class="flex gap-3">
+                                    <div
+                                        class="w-9 h-9 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center shrink-0">
+                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                                            stroke-width="2">
+                                            <path stroke-linecap="round" stroke-linejoin="round"
+                                                d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                                        </svg>
+                                    </div>
+                                    <div class="flex-1 min-w-0 flex flex-col justify-center gap-0.5">
+                                        <div class="text-[13px] text-text-secondary truncate">https://sirwan.info</div>
+                                        <div class="flex items-center gap-1.5 text-[10px] text-text-muted">
+                                            <span>Arc</span>
+                                            <span class="opacity-40">·</span>
+                                            <span>2h ago</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Item: File -->
+                            <div
+                                class="relative group p-2 mx-1 rounded-xl hover:bg-white/5 border border-transparent hover:border-white/5 cursor-pointer transition-all">
+                                <div class="flex gap-3">
+                                    <div
+                                        class="w-9 h-9 rounded-lg bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0">
+                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                                            stroke-width="2">
+                                            <path stroke-linecap="round" stroke-linejoin="round"
+                                                d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                                        </svg>
+                                    </div>
+                                    <div class="flex-1 min-w-0 flex flex-col justify-center gap-0.5">
+                                        <div class="text-[13px] text-text-secondary truncate">package.json</div>
+                                        <div class="flex items-center gap-1.5 text-[10px] text-text-muted">
+                                            <span>VS Code</span>
+                                            <span class="opacity-40">·</span>
+                                            <span>1d ago</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div
+                        class="absolute top-20 left-12 w-[400px] bg-[#1a1a1a]/95 backdrop-blur-2xl rounded-xl border border-white/10 shadow-[0_30px_60px_rgba(0,0,0,0.5)] overflow-hidden z-30 flex flex-col">
+                        <!-- Settings Header -->
+                        <div class="h-12 flex items-center justify-between px-4 border-b border-white/5 bg-white/5">
+                            <div class="flex items-center gap-3">
+                                <div
+                                    class="w-7 h-7 rounded-lg flex items-center justify-center bg-gradient-to-br from-accent-primary to-accent-light shadow-lg">
+                                    <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24"
+                                        stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round"
+                                            d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round"
+                                            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    </svg>
+                                </div>
+                                <div class="flex flex-col">
+                                    <span class="text-sm font-semibold text-white leading-tight">Settings</span>
+                                    <span class="text-[10px] text-text-muted leading-tight">Preferences</span>
+                                </div>
+                            </div>
+                            <div
+                                class="w-6 h-6 rounded-md hover:bg-white/10 flex items-center justify-center transition-colors cursor-pointer">
+                                <svg class="w-4 h-4 text-text-muted" fill="none" viewBox="0 0 24 24"
+                                    stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </div>
+                        </div>
+
+                        <!-- Settings Content -->
+                        <div class="p-5 space-y-5">
+                            <!-- Appearance Section -->
+                            <div class="space-y-2">
+                                <div class="flex items-center gap-2 text-text-muted">
+                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                                        stroke-width="1.5">
+                                        <path stroke-linecap="round" stroke-linejoin="round"
+                                            d="M4.098 19.902a3.75 3.75 0 005.304 0l6.401-6.402M6.75 21A3.75 3.75 0 013 17.25V4.125C3 3.504 3.504 3 4.125 3h5.25c.621 0 1.125.504 1.125 1.125v4.072M6.75 21a3.75 3.75 0 003.75-3.75V8.197M6.75 21h13.125c.621 0 1.125-.504 1.125-1.125v-5.25c0-.621-.504-1.125-1.125-1.125h-4.072M10.5 8.197l2.88-2.88c.438-.439 1.15-.439 1.59 0l3.712 3.713c.44.44.44 1.152 0 1.59l-2.879 2.88M6.75 17.25h.008v.008H6.75v-.008z" />
+                                    </svg>
+                                    <span class="text-[10px] font-bold uppercase tracking-widest">Appearance</span>
+                                </div>
+                                <div class="bg-white/5 rounded-xl border border-white/5 overflow-hidden">
+                                    <!-- Row 1: Theme -->
+                                    <div
+                                        class="flex items-center justify-between px-4 py-3 border-b border-white/5 hover:bg-white/5 transition-colors">
+                                        <span class="text-sm font-medium text-text-primary">Theme</span>
+                                        <div class="flex p-0.5 bg-black/20 rounded-lg border border-white/5">
+                                            <button
+                                                class="px-2.5 py-1 text-xs font-medium rounded-md text-text-muted hover:text-white transition">Auto</button>
+                                            <button
+                                                class="px-2.5 py-1 text-xs font-medium rounded-md bg-accent-primary text-white shadow-sm">Dark</button>
+                                            <button
+                                                class="px-2.5 py-1 text-xs font-medium rounded-md text-text-muted hover:text-white transition">Light</button>
+                                        </div>
+                                    </div>
+                                    <!-- Row 2: Panel Position -->
+                                    <div
+                                        class="flex items-center justify-between px-4 py-3 hover:bg-white/5 transition-colors">
+                                        <span class="text-sm font-medium text-text-primary">Panel Position</span>
+                                        <div
+                                            class="flex items-center gap-1.5 bg-black/20 px-3 py-1.5 rounded-lg border border-white/5 text-xs text-text-secondary">
+                                            <span>Right</span>
+                                            <svg class="w-3 h-3 opacity-50" fill="none" viewBox="0 0 24 24"
+                                                stroke="currentColor" stroke-width="2">
+                                                <path stroke-linecap="round" stroke-linejoin="round"
+                                                    d="M19 9l-7 7-7-7" />
+                                            </svg>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Shortcuts Section -->
+                            <div class="space-y-2">
+                                <div class="flex items-center gap-2 text-text-muted">
+                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                                        stroke-width="1.5">
+                                        <path stroke-linecap="round" stroke-linejoin="round"
+                                            d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z" />
+                                    </svg>
+                                    <span class="text-[10px] font-bold uppercase tracking-widest">Shortcuts</span>
+                                </div>
+                                <div class="bg-white/5 rounded-xl border border-white/5 overflow-hidden">
+                                    <div
+                                        class="flex items-center justify-between px-4 py-3 hover:bg-white/5 transition-colors">
+                                        <span class="text-sm font-medium text-text-primary">Toggle Panel</span>
+                                        <div class="flex gap-1.5">
+                                            <kbd
+                                                class="px-2 py-1 bg-white/10 rounded-md border border-white/10 text-[10px] font-mono text-white/80 font-semibold shadow-sm">⌘</kbd>
+                                            <kbd
+                                                class="px-2 py-1 bg-white/10 rounded-md border border-white/10 text-[10px] font-mono text-white/80 font-semibold shadow-sm">V</kbd>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div
+                        class="absolute bottom-4 left-1/2 -translate-x-1/2 h-16 px-3 bg-white/10 backdrop-blur-2xl border border-white/10 rounded-2xl flex items-center gap-2 z-50">
+                        <div class="w-10 h-10 rounded-xl bg-gradient-to-b from-blue-400 to-blue-600 shadow-md"></div>
+                        <div class="w-10 h-10 rounded-xl bg-gradient-to-b from-green-400 to-green-600 shadow-md"></div>
+                        <div
+                            class="w-10 h-10 rounded-xl bg-gradient-to-b from-accent-primary to-accent-light flex items-center justify-center shadow-lg ring-2 ring-white/20">
+                            <span class="font-bold text-white text-lg">S</span>
+                        </div>
+                        <div class="w-px h-8 bg-white/10 mx-1"></div>
+                        <div
+                            class="w-10 h-10 rounded-xl bg-gray-600/50 flex items-center justify-center text-white/50 border border-white/10">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path
+                                    d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+                                    stroke-width="1.5" />
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Features Section -->
+    <section id="features" class="py-32 relative">
+        <div class="max-w-6xl mx-auto px-6">
+
+            <!-- Section header -->
+            <div class="text-center mb-20">
+                <p class="font-mono text-xs text-accent-light uppercase tracking-widest mb-4">Features</p>
+                <h2 class="text-4xl md:text-5xl font-serif mb-6">
+                    Engineered for <span class="italic">perfectionists</span>
+                </h2>
+                <p class="text-text-secondary max-w-xl mx-auto text-lg">
+                    Every pixel and interaction has been crafted to feel native and instantaneous.
+                </p>
+            </div>
+
+            <!-- Features grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+
+                <!-- Feature 1 -->
+                <div class="feature-card p-7 group">
+                    <div
+                        class="w-12 h-12 rounded-xl bg-bg-hover flex items-center justify-center mb-5 text-text-secondary group-hover:bg-accent-primary/20 group-hover:text-accent-light transition-all duration-300">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-semibold mb-2 text-text-primary">Time Travel</h3>
+                    <p class="text-text-secondary text-sm leading-relaxed">Access your clipboard history from days or
+                        weeks ago. Search instantly with fuzzy matching.</p>
+                </div>
+
+                <!-- Feature 2 -->
+                <div class="feature-card p-7 group">
+                    <div
+                        class="w-12 h-12 rounded-xl bg-bg-hover flex items-center justify-center mb-5 text-text-secondary group-hover:bg-accent-primary/20 group-hover:text-accent-light transition-all duration-300">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                                d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z">
+                            </path>
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-semibold mb-2 text-text-primary">Smart Previews</h3>
+                    <p class="text-text-secondary text-sm leading-relaxed">Visualize colors, images, and formatted text
+                        directly in the list before you paste.</p>
+                </div>
+
+                <!-- Feature 3 -->
+                <div class="feature-card p-7 group" id="security">
+                    <div
+                        class="w-12 h-12 rounded-xl bg-bg-hover flex items-center justify-center mb-5 text-text-secondary group-hover:bg-accent-primary/20 group-hover:text-accent-light transition-all duration-300">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                                d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z">
+                            </path>
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-semibold mb-2 text-text-primary">Local & Secure</h3>
+                    <p class="text-text-secondary text-sm leading-relaxed">Your data never leaves your device. Exclude
+                        sensitive apps like 1Password or Keychain.</p>
+                </div>
+
+                <!-- Feature 4 -->
+                <div class="feature-card p-7 group">
+                    <div
+                        class="w-12 h-12 rounded-xl bg-bg-hover flex items-center justify-center mb-5 text-text-secondary group-hover:bg-accent-primary/20 group-hover:text-accent-light transition-all duration-300">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                                d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z">
+                            </path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                                d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-semibold mb-2 text-text-primary">Image OCR</h3>
+                    <p class="text-text-secondary text-sm leading-relaxed">Extract text from images in your clipboard
+                        instantly. Perfect for unselectable error messages.</p>
+                </div>
+
+                <!-- Feature 5 -->
+                <div class="feature-card p-7 group">
+                    <div
+                        class="w-12 h-12 rounded-xl bg-bg-hover flex items-center justify-center mb-5 text-text-secondary group-hover:bg-accent-primary/20 group-hover:text-accent-light transition-all duration-300">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                                d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10">
+                            </path>
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-semibold mb-2 text-text-primary">Collections</h3>
+                    <p class="text-text-secondary text-sm leading-relaxed">Pin your most used snippets. Organize code
+                        blocks, signatures, and templates.</p>
+                </div>
+
+                <!-- Feature 6 -->
+                <div class="feature-card p-7 group">
+                    <div
+                        class="w-12 h-12 rounded-xl bg-bg-hover flex items-center justify-center mb-5 text-text-secondary group-hover:bg-accent-primary/20 group-hover:text-accent-light transition-all duration-300">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                                d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-semibold mb-2 text-text-primary">Native Performance</h3>
+                    <p class="text-text-secondary text-sm leading-relaxed">Designed for speed and efficiency. Tiny
+                        memory footprint (less than 15MB idle).</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="relative pt-24 pb-12 border-t border-border-subtle">
+        <div class="max-w-6xl mx-auto px-6">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-12 mb-16">
+
+                <!-- Brand -->
+                <div class="md:col-span-2">
+                    <div class="flex items-center gap-3 mb-5">
+                        <div
+                            class="w-8 h-8 bg-gradient-to-br from-accent-primary to-accent-light rounded-lg flex items-center justify-center">
+                            <span class="font-mono text-xs font-bold text-white">S</span>
+                        </div>
+                        <span class="font-mono text-lg font-medium">stash</span>
+                    </div>
+                    <p class="text-text-muted text-sm leading-relaxed max-w-xs">
+                        The last clipboard manager you'll ever need. Built with care by Sirwan Afifi.
+                    </p>
+                </div>
+
+                <!-- Product links -->
+                <div>
+                    <h4 class="font-mono text-xs text-text-muted uppercase tracking-widest mb-5">Product</h4>
+                    <ul class="space-y-3 text-sm">
+                        <li><a href="#features"
+                                class="text-text-secondary hover:text-accent-light transition-colors">Features</a></li>
+                        <li><a href="#"
+                                class="text-text-secondary hover:text-accent-light transition-colors">Download</a></li>
+                        <li><a href="#"
+                                class="text-text-secondary hover:text-accent-light transition-colors">Changelog</a></li>
+                    </ul>
+                </div>
+
+                <!-- Community links -->
+                <div>
+                    <h4 class="font-mono text-xs text-text-muted uppercase tracking-widest mb-5">Social</h4>
+                    <ul class="space-y-3 text-sm">
+                        <li><a href="#"
+                                class="text-text-secondary hover:text-accent-light transition-colors">Twitter</a></li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Bottom bar -->
+            <div
+                class="pt-8 border-t border-border-subtle flex flex-col md:flex-row justify-between items-center gap-4">
+                <p class="text-xs text-text-muted">&copy; 2026 Stash. All rights reserved.</p>
+                <div class="flex gap-6 text-xs text-text-muted">
+                    <a href="#" class="hover:text-text-secondary transition-colors">Privacy Policy</a>
+                    <a href="#" class="hover:text-text-secondary transition-colors">Terms of Service</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+</body>
+
+</html>
